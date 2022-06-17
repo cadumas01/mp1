@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"mp1/configs"
 	"os"
 )
 
@@ -17,7 +18,8 @@ func main() {
 		return
 	}
 
-	querry := QuerryConfig(os.Args[1])
+	querry := configs.QuerryConfig(os.Args[1], 0)
+	//querry := configs.QuerryConfig(os.Args[1])
 
 	// if empty then id not found in config
 	if len(querry) == 0 {

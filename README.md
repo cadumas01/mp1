@@ -13,6 +13,18 @@ A simple network demonstration
   - Are all nodes initialized at the start? Or is they only connected upon request
     - Could try to dial to all other nodes immedaitely (block on goroutines) until the other nodes are up
 
+  - Node Dials to Another node once a message needs to be sent. Each node is both a server and client
+    - Error checking if other node has not been initalized
+    - CURRENT IDEA
+    - Once Node A accepts Node B's dial, that means Node B has sent a message to node A so Node A should listen
+      - This way don't need to keep a dictionary of all connections?
+
+# Notes
+## config
+- IP address varies, port stays the same
+
+# Assignement Directions
+https://docs.google.com/document/d/1fB7Xudj6MQ690WjYsjvfp8CP_1eay3We959teEFEqIE/edit
 
 # Resources
 https://www.baeldung.com/cs/distributed-systems-guide

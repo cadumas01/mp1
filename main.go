@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"mp1/configs"
+	"mp1/configurations"
+	"mp1/messages"
 	"os"
 )
 
@@ -18,7 +19,9 @@ func main() {
 		return
 	}
 
-	querry := configs.QuerryConfig(os.Args[1], 0)
+	m := messages.ConstructMessage()
+	fmt.Println(m)
+	querry := configurations.QuerryConfig(os.Args[1], 0)
 	//querry := configs.QuerryConfig(os.Args[1])
 
 	// if empty then id not found in config

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"mp1/configurations"
-	"mp1/messages"
+	"mp1/node"
 	"os"
 )
 
@@ -19,16 +19,16 @@ func main() {
 		return
 	}
 
-	m := messages.ConstructMessage()
-	fmt.Println(m)
 	querry := configurations.QuerryConfig(os.Args[1], 0)
-	//querry := configs.QuerryConfig(os.Args[1])
 
 	// if empty then id not found in config
 	if len(querry) == 0 {
 		fmt.Println("Machine ID not found in config file. Either add it to configs or initialize an ID already in config file")
 		return
 	}
+
+	id := querry[0]
+	node.StartNode(id)
 
 	fmt.Println("Success")
 

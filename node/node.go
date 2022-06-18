@@ -6,6 +6,7 @@ import (
 	"mp1/configurations"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -29,6 +30,7 @@ func StartNode(id string) {
 	// Accept connections, get their address with conn.RemoteAddr() and add to dictionary of connections
 	go acceptClients(in_conns, ln)
 
+	fmt.Println("After accept clinets")
 	// Try to Dial into other listeners
 	outConnsMap := OutConnsMap(id)
 
@@ -62,15 +64,22 @@ func OutConnsMap(exclude_id string) map[string]net.Conn {
 	connsMap := make(map[string]net.Conn)
 
 	for scanner.Scan() {
+		//skip first line that holds min and max delay
 
 		lineArr := strings.Split(scanner.Text(), " ")
-		if lineArr[0] != exclude_id {
-			wg.Add(1)
-			// ip + port
+		if len(lineArr) == 3 {
+			len := strconv.Itoa(len(lineArr))
+			fmt.Println("Len of lineArr = " + len)
+			fmt.Println("Here is lineArr" + scanner.Text())
+			if lineArr[0] != exclude_id {
+				wg.Add(1)
+				// ip + port
 
-			// dial and add conn to map
-			go connect(lineArr, connsMap, &wg)
+				// dial and add conn to map
+				go connect(lineArr, connsMap, &wg)
+			}
 		}
+
 	}
 
 	wg.Wait()
@@ -160,11 +169,30 @@ func acceptClients(connections map[string]net.Conn, ln net.Listener) {
 	fmt.Println("Inside acceptClients")
 	// loop to allow function to accept all clients
 	for {
+		fmt.Println("Inside loop")
 		// Waits for client to connect
-		conn, err := ln.Accept() // NEED TO ADD goroutine????
+
+		connChan := make(chan net.Conn)
+		errChan := make(chan error)
+
+		// Use of channels to return values from goroutine (ln.Accept())
+		go func() {
+			fmt.Println("About to accept")
+
+			conn, err := ln.Accept() // NEED TO ADD goroutine????
+			connChan <- conn
+			errChan <- err
+		}()
+
+		// offloading channels
+		conn := <-connChan
+		err := <-errChan
+
 		fmt.Println("Line 165")
 
 		if err != nil {
+			fmt.Println("About to panic")
+
 			panic("error accepting")
 		}
 

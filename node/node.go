@@ -132,6 +132,10 @@ func handleInput() (destination string, message string) {
 
 	destination = textArr[1]
 	message = strings.Join(textArr[2:], " ")
+
+	//strip new line
+	message = strings.Replace(message, "\n", "", -1)
+
 	return
 }
 
@@ -153,7 +157,7 @@ func unicastSend(connsMap map[string]net.Conn, destinationId string, message str
 
 	//Sent “Hello” to process 2, system time is ­­­­­­­­­­­­­XXX
 	time := time.Now().String()
-	fmt.Println("Sent'" + message + "' to node" + destinationId + ", system time is" + time)
+	fmt.Println("Sent '" + message + "' to node" + destinationId + ", system time is" + time)
 
 }
 
@@ -213,12 +217,13 @@ func acceptClients(connections map[string]net.Conn, ln net.Listener) {
 		connections[acceptedId] = conn //  CORRECT?, key must be id not ip
 		fmt.Println("Just accepted " + acceptedIp + ", added id= " + acceptedId + " to connections map")
 
-		go handleConnection(conn)
+		go handleConnection(conn) // Bug here
 
 	}
 
 }
 
+// fix bug
 func handleConnection(conn net.Conn) {
 
 	fmt.Println("INside handleConnection")
@@ -227,19 +232,14 @@ func handleConnection(conn net.Conn) {
 		buf := make([]byte, bufSize)
 		_, err := bufio.NewReader(conn).Read(buf)
 
-		if err != nil {
-			panic(err)
+		// if err is empty, we have a message and can print it
+		if err == nil {
+			message := string(buf)
+
+			source := configurations.QuerryConfig(conn.RemoteAddr().String(), 1)[1]
+			unicastReceive(source, message)
+
 		}
-
-		message := string(buf)
-
-		source := configurations.QuerryConfig(conn.RemoteAddr().String(), 1)[1]
-		unicastReceive(source, message)
-
-		// Send confiramtion message
-		//conn.Write([]byte(Confirmation))
-		//fmt.Println("Confirmation sent, server exiting...")
-
 	}
 	return
 }

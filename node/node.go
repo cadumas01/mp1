@@ -70,7 +70,7 @@ func OutConnsMap(exclude_id string) map[string]net.Conn {
 		if len(lineArr) == 3 {
 			len := strconv.Itoa(len(lineArr))
 			fmt.Println("Len of lineArr = " + len)
-			fmt.Println("Here is lineArr" + scanner.Text())
+			fmt.Println("Here is lineArr: " + scanner.Text())
 			if lineArr[0] != exclude_id {
 				wg.Add(1)
 				// ip + port
@@ -92,6 +92,14 @@ func connect(lineArr []string, conns_map map[string]net.Conn, wg *sync.WaitGroup
 	//Connect to port
 	conn, err := net.Dial("tcp", address)
 
+	for err != nil {
+		fmt.Println("Dialing...")
+		conn, err = net.Dial("tcp", address)
+		time.Sleep(1 * time.Second)
+	}
+
+	fmt.Println("Broke out of loop, dial successful")
+	// Delete
 	if err != nil {
 		panic(err)
 	}
@@ -99,7 +107,7 @@ func connect(lineArr []string, conns_map map[string]net.Conn, wg *sync.WaitGroup
 	// add to map
 	conns_map[lineArr[0]] = conn
 
-	fmt.Println("Client Successfully connected from " + conn.LocalAddr().String())
+	fmt.Println("Client Successfully connected from " + connIp(conn))
 	wg.Done()
 }
 
@@ -158,7 +166,7 @@ func startServer(address string) (ln net.Listener) {
 		panic("Error listening")
 	}
 
-	fmt.Println("server started for " + address)
+	fmt.Println("server started for " + ln.Addr().String())
 
 	return ln
 }
@@ -196,13 +204,14 @@ func acceptClients(connections map[string]net.Conn, ln net.Listener) {
 			panic("error accepting")
 		}
 
-		acceptedIp := conn.RemoteAddr().String()
+		acceptedIp := connIp(conn)
+		acceptedId := configurations.QuerryConfig(acceptedIp, 1)[0]
 		fmt.Println("acceptedIP : " + acceptedIp)
 		// Find id from AcceptedIp - NOT DONE
 
 		// Add connection to map
-		connections[acceptedIp] = conn // NOT CORRECT, key must be id not ip
-		fmt.Println("Just accepted " + acceptedIp)
+		connections[acceptedId] = conn //  CORRECT?, key must be id not ip
+		fmt.Println("Just accepted " + acceptedIp + ", added id= " + acceptedId + " to connections map")
 
 		go handleConnection(conn)
 
@@ -238,4 +247,13 @@ func handleConnection(conn net.Conn) {
 func unicastReceive(source string, message string) {
 	time := time.Now().String()
 	fmt.Println("Received'" + message + "' from node" + source + ", system time is" + time)
+}
+
+// Returns Conn's ip address
+func connIp(conn net.Conn) string {
+	if addr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+		return addr.IP.String()
+	} else {
+		return ""
+	}
 }

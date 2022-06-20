@@ -14,6 +14,7 @@ import (
 
 var bufSize int = 2048
 
+// MUST ADD DELAY !!!!
 // address = ip + port
 func StartNode(id string) {
 	// Initalize Listener

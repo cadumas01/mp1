@@ -1,6 +1,16 @@
 # mp1
 A simple network demonstration
 
+# Usage:
+  Initalize config.txt with: 
+    INSERT
+
+
+  For each node listed in the config file, open an terminal instance and run: ``` go run main.go NODE_ID ``` where NODE_ID is the id that node as specified by config.txt
+
+  Once all of the nodes are connected (a confirmation message will appear), send messages by entering: ```send DESTINATION_ID MESSAGE``` 
+
+
 
 # Ideas: 
 - 1 server that each network application connects to?

@@ -19,7 +19,7 @@ func main() {
 		return
 	}
 
-	querry := configurations.QuerryConfig(os.Args[1], 0)
+	querry := configurations.QueryConfig(os.Args[1], 0)
 
 	// if empty then id not found in config
 	if len(querry) == 0 {

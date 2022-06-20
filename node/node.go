@@ -8,7 +8,6 @@ import (
 	"mp1/configurations"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -28,15 +27,13 @@ func StartNode(id string) {
 	minDelay, maxDelay = configurations.GetDelayBounds()
 
 	// Initalize Listener
-	lineArr := configurations.QuerryConfig(id, 0)
+	lineArr := configurations.QueryConfig(id, 0)
 	address := lineArr[1] + ":" + lineArr[2]
 
-	fmt.Println("address is " + address)
 	ln := startServer(address)
 
 	// connctions maps ip?? to connection
 	in_conns := make(map[string]net.Conn)
-	fmt.Println("len of map = " + strconv.Itoa(len(in_conns)))
 
 	var wgAccept sync.WaitGroup
 
@@ -86,9 +83,6 @@ func OutConnsMap(id string) map[string]net.Conn {
 
 		lineArr := strings.Split(scanner.Text(), " ")
 		if len(lineArr) == 3 {
-			len := strconv.Itoa(len(lineArr))
-			fmt.Println("Len of lineArr = " + len)
-			fmt.Println("Here is lineArr: " + scanner.Text())
 			if lineArr[0] != id {
 				wg.Add(1)
 
@@ -128,7 +122,7 @@ func connectTo(id string, lineArr []string, conns_map map[string]net.Conn, wg *s
 		panic("Error writing message")
 	}
 
-	fmt.Println("Client Successfully connected to  " + remoteConnIp(conn))
+	fmt.Println("Client Successfully connected to  " + address)
 	wg.Done()
 }
 
@@ -260,16 +254,6 @@ func unicastReceive(source string, message string) {
 }
 
 // Util///
-
-// Returns Conn's ip address
-func remoteConnIp(conn net.Conn) string {
-	if addr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-		return addr.IP.String()
-	} else {
-		return ""
-	}
-}
-
 func getDelay() int {
 	diff := maxDelay - minDelay
 	return minDelay + rand.Intn(diff)

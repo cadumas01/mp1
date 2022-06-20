@@ -12,7 +12,7 @@ const CONFIG string = "config.txt"
 // Queries config file to return arguments for a given line based on ID
 // Returns [ID, IP, PORT]
 // keyType may be: id=0, ip=1, port=2
-func QuerryConfig(key string, keyType int) []string {
+func QueryConfig(key string, keyType int) []string {
 	file, err := os.Open(CONFIG)
 
 	if err != nil {

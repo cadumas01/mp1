@@ -8,7 +8,7 @@ import (
 )
 
 func usage() {
-	fmt.Println("USAGE:\n\tTo start a node: go run main.go [NODE_ID]\n\tSend a message with: send [DESTINATION] [MESSAGE]")
+	fmt.Println("USAGE:\n\tTo start a node: go run main.go [NODE_ID]")
 }
 
 func main() {

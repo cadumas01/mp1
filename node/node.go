@@ -28,13 +28,18 @@ func StartNode(id string) {
 
 	// Listen for connection
 	// Accept connections, get their address with conn.RemoteAddr() and add to dictionary of connections
-	go acceptClients(in_conns, ln)
+
+	var wgAccept sync.WaitGroup
+	wgAccept.Add(2)
+	go acceptClients(in_conns, ln, &wgAccept)
 
 	fmt.Println("After accept clinets")
 	// Try to Dial into other listeners
 	outConnsMap := OutConnsMap(id)
 
+	wgAccept.Wait()
 	// Wait for input and send messages
+	fmt.Println("All nodes connected. Send a message with: send [DESTINATION ID] [MESSAGE]")
 	for {
 		destination, message := handleInput()
 		if destination != "" {
@@ -145,6 +150,11 @@ func unicastSend(connsMap map[string]net.Conn, destinationId string, message str
 	// Dealing with Message construction
 	conn := connsMap[destinationId]
 
+	if conn == nil {
+		fmt.Println("Invalid destination id, try again")
+		return
+	}
+
 	// Send Message
 	fmt.Println("Sending a message...")
 
@@ -156,8 +166,8 @@ func unicastSend(connsMap map[string]net.Conn, destinationId string, message str
 	}
 
 	//Sent “Hello” to process 2, system time is ­­­­­­­­­­­­­XXX
-	time := time.Now().String()
-	fmt.Println("Sent '" + message + "' to node" + destinationId + ", system time is" + time)
+	time := time.Now().Format("02 Jan 06 15:04 EST")
+	fmt.Println("Sent '" + message + "' to node " + destinationId + ", system time is " + time)
 
 }
 
@@ -176,7 +186,7 @@ func startServer(address string) (ln net.Listener) {
 }
 
 // Waits for client to connect and recieves message
-func acceptClients(connections map[string]net.Conn, ln net.Listener) {
+func acceptClients(connections map[string]net.Conn, ln net.Listener, wgAccept *sync.WaitGroup) {
 
 	fmt.Println("Inside acceptClients")
 	// loop to allow function to accept all clients
@@ -188,6 +198,7 @@ func acceptClients(connections map[string]net.Conn, ln net.Listener) {
 		errChan := make(chan error)
 
 		// Use of channels to return values from goroutine (ln.Accept())
+		// Not sure if this is correct, test without it
 		go func() {
 			fmt.Println("About to accept")
 
@@ -214,10 +225,11 @@ func acceptClients(connections map[string]net.Conn, ln net.Listener) {
 		// Find id from AcceptedIp - NOT DONE
 
 		// Add connection to map
-		connections[acceptedId] = conn //  CORRECT?, key must be id not ip
+		connections[acceptedId] = conn
 		fmt.Println("Just accepted " + acceptedIp + ", added id= " + acceptedId + " to connections map")
 
-		go handleConnection(conn) // Bug here
+		go handleConnection(conn)
+		wgAccept.Done()
 
 	}
 
@@ -227,7 +239,7 @@ func acceptClients(connections map[string]net.Conn, ln net.Listener) {
 // Handles incoming messages for the node
 func handleConnection(conn net.Conn) {
 
-	fmt.Println("Inside handleConnection ")
+	//fmt.Println("Inside handleConnection ")
 	// loop to allow for many connection handling
 	for {
 		buf := make([]byte, bufSize)
@@ -238,7 +250,8 @@ func handleConnection(conn net.Conn) {
 			message := string(buf)
 
 			fmt.Println("Just read a message from " + remoteConnIp(conn))
-			source := configurations.QuerryConfig(remoteConnIp(conn), 1)[1]
+			source := configurations.QuerryConfig(remoteConnIp(conn), 1)[0]
+
 			unicastReceive(source, message)
 
 		}
@@ -247,8 +260,8 @@ func handleConnection(conn net.Conn) {
 }
 
 func unicastReceive(source string, message string) {
-	time := time.Now().String()
-	fmt.Println("Received '" + message + "' from node" + source + ", system time is" + time)
+	time := time.Now().Format("02 Jan 06 15:04 EST")
+	fmt.Println("Received '" + message + "' from node " + source + ", system time is: " + time)
 }
 
 // Returns Conn's ip address

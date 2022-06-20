@@ -67,7 +67,7 @@ func StartNode(id string) {
 
 // Creates map of outgoing connections = {id1: conn1, ...} without exclude_id (self)
 // Each conn is null to start
-func OutConnsMap(exclude_id string) map[string]net.Conn {
+func OutConnsMap(id string) map[string]net.Conn {
 	// Do not return until all conncetions have been formed
 	var wg sync.WaitGroup
 
@@ -90,11 +90,11 @@ func OutConnsMap(exclude_id string) map[string]net.Conn {
 			len := strconv.Itoa(len(lineArr))
 			fmt.Println("Len of lineArr = " + len)
 			fmt.Println("Here is lineArr: " + scanner.Text())
-			if lineArr[0] != exclude_id {
+			if lineArr[0] != id {
 				wg.Add(1)
 
 				// dial and add conn to map
-				go connectTo(lineArr, connsMap, &wg)
+				go connectTo(id, lineArr, connsMap, &wg)
 			}
 		}
 
@@ -104,7 +104,7 @@ func OutConnsMap(exclude_id string) map[string]net.Conn {
 	return connsMap
 }
 
-func connectTo(lineArr []string, conns_map map[string]net.Conn, wg *sync.WaitGroup) {
+func connectTo(id string, lineArr []string, conns_map map[string]net.Conn, wg *sync.WaitGroup) {
 	address := lineArr[1] + ":" + lineArr[2]
 
 	//Connect to port
@@ -122,6 +122,13 @@ func connectTo(lineArr []string, conns_map map[string]net.Conn, wg *sync.WaitGro
 
 	// add to map
 	conns_map[lineArr[0]] = conn
+
+	// Send this ID to remote node
+	_, err = conn.Write([]byte(id))
+
+	if err != nil {
+		panic("Error writing message")
+	}
 
 	fmt.Println("Client Successfully connected to  " + remoteConnIp(conn))
 	wg.Done()
@@ -226,25 +233,39 @@ func acceptClients(connections map[string]net.Conn, ln net.Listener, wgAccept *s
 			panic("error accepting")
 		}
 
-		acceptedIp := remoteConnIp(conn)
-		fmt.Println("acceptedIp: " + acceptedIp)
-		fmt.Println("Remote addr: " + conn.RemoteAddr().String())
-		fmt.Println("IDK: " + conn.RemoteAddr().(*net.TCPAddr).AddrPort().String())
-		fmt.Println("Local addr: " + conn.LocalAddr().String())
+		// Get accepted id to add to list
+		buf := make([]byte, bufSize)
+		_, err = bufio.NewReader(conn).Read(buf)
 
-		acceptedId := configurations.QuerryConfig(acceptedIp, 1)[0]
+		// if err is empty, we have a message and can print it
+		if err != nil {
+			panic(err)
+		}
 
-		// Add connection to map
+		acceptedId := string(bytes.Trim(buf, "\x00")) //trims buf of empty bytes
+
 		connections[acceptedId] = conn
-		fmt.Println("Just accepted " + acceptedIp + ", added id= " + acceptedId + " to connections map")
+		fmt.Println("Just added id= " + acceptedId + " to connections map")
 
-		go handleConnection(conn)
+		go handleConnection(conn, acceptedId)
 		wgAccept.Done()
+
+		/*
+			acceptedIp := remoteConnIp(conn)
+			fmt.Println("acceptedIp: " + acceptedIp)
+			fmt.Println("Remote addr: " + conn.RemoteAddr().String())
+			fmt.Println("IDK: " + conn.RemoteAddr().(*net.TCPAddr).AddrPort().String())
+			fmt.Println("Local addr: " + conn.LocalAddr().String())
+
+			acceptedId := configurations.QuerryConfig(acceptedIp, 1)[0]
+		*/
+		// Add connection to map
+
 	}
 }
 
 // Handles incoming messages for the node
-func handleConnection(conn net.Conn) {
+func handleConnection(conn net.Conn, acceptedId string) {
 	// loop to allow for many connection handling
 	for {
 		buf := make([]byte, bufSize)
@@ -255,10 +276,10 @@ func handleConnection(conn net.Conn) {
 
 			message := string(bytes.Trim(buf, "\x00")) //trims buf of empty bytes
 
-			message = strings.TrimSpace(message) // maybe delete?
-			source := configurations.QuerryConfig(remoteConnIp(conn), 1)[0]
+			//message = strings.TrimSpace(message) // maybe delete?
+			//source := configurations.QuerryConfig(remoteConnIp(conn), 1)[0]
 
-			unicastReceive(source, message)
+			unicastReceive(acceptedId, message)
 		}
 	}
 }

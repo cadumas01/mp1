@@ -213,6 +213,7 @@ func acceptClients(connections map[string]net.Conn, ln net.Listener, wgAccept *s
 			fmt.Println("About to accept")
 
 			conn, err := ln.Accept() // NEED TO ADD goroutine????
+			fmt.Println("Newly accepted conn is : " + remoteConnIp(conn))
 			connChan <- conn
 			errChan <- err
 		}()
@@ -228,6 +229,7 @@ func acceptClients(connections map[string]net.Conn, ln net.Listener, wgAccept *s
 		acceptedIp := remoteConnIp(conn)
 		fmt.Println("acceptedIp: " + acceptedIp)
 		fmt.Println("Remote addr: " + conn.RemoteAddr().String())
+		fmt.Println("IDK: " + conn.RemoteAddr().(*net.TCPAddr).AddrPort().String())
 		fmt.Println("Local addr: " + conn.LocalAddr().String())
 
 		acceptedId := configurations.QuerryConfig(acceptedIp, 1)[0]

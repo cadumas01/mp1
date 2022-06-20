@@ -38,14 +38,13 @@ func StartNode(id string) {
 	in_conns := make(map[string]net.Conn)
 	fmt.Println("len of map = " + strconv.Itoa(len(in_conns)))
 
-	// Listen for connection
-	// Accept connections, get their address with conn.RemoteAddr() and add to dictionary of connections
-
 	var wgAccept sync.WaitGroup
 
 	// total lines - 1 (delays) - 1 (self) = total number of connections
 	wgAccept.Add(countLines(CONFIG) - 2)
 
+	// Listen for connection
+	// Accept connections, get their address with conn.RemoteAddr() and add to dictionary of connections
 	go acceptClients(in_conns, ln, &wgAccept)
 
 	// Try to Dial into other listeners
@@ -71,7 +70,7 @@ func OutConnsMap(id string) map[string]net.Conn {
 	// Do not return until all conncetions have been formed
 	var wg sync.WaitGroup
 
-	file, err := os.Open("config.txt")
+	file, err := os.Open(CONFIG)
 
 	if err != nil {
 		panic(err)
@@ -97,7 +96,6 @@ func OutConnsMap(id string) map[string]net.Conn {
 				go connectTo(id, lineArr, connsMap, &wg)
 			}
 		}
-
 	}
 
 	wg.Wait()
@@ -211,23 +209,7 @@ func startServer(address string) (ln net.Listener) {
 func acceptClients(connections map[string]net.Conn, ln net.Listener, wgAccept *sync.WaitGroup) {
 	// loop to allow function to accept all clients
 	for {
-		connChan := make(chan net.Conn)
-		errChan := make(chan error)
-
-		// Use of channels to return values from goroutine (ln.Accept())
-		// Not sure if this is correct, test without it
-		go func() {
-			fmt.Println("About to accept")
-
-			conn, err := ln.Accept() // NEED TO ADD goroutine????
-			fmt.Println("Newly accepted conn is : " + remoteConnIp(conn))
-			connChan <- conn
-			errChan <- err
-		}()
-
-		// offloading channels
-		conn := <-connChan
-		err := <-errChan
+		conn, err := ln.Accept()
 
 		if err != nil {
 			panic("error accepting")
@@ -245,22 +227,10 @@ func acceptClients(connections map[string]net.Conn, ln net.Listener, wgAccept *s
 		acceptedId := string(bytes.Trim(buf, "\x00")) //trims buf of empty bytes
 
 		connections[acceptedId] = conn
-		fmt.Println("Just added id= " + acceptedId + " to connections map")
+		fmt.Println("Just accepted id = " + acceptedId)
 
 		go handleConnection(conn, acceptedId)
 		wgAccept.Done()
-
-		/*
-			acceptedIp := remoteConnIp(conn)
-			fmt.Println("acceptedIp: " + acceptedIp)
-			fmt.Println("Remote addr: " + conn.RemoteAddr().String())
-			fmt.Println("IDK: " + conn.RemoteAddr().(*net.TCPAddr).AddrPort().String())
-			fmt.Println("Local addr: " + conn.LocalAddr().String())
-
-			acceptedId := configurations.QuerryConfig(acceptedIp, 1)[0]
-		*/
-		// Add connection to map
-
 	}
 }
 
@@ -273,12 +243,7 @@ func handleConnection(conn net.Conn, acceptedId string) {
 
 		// if err is empty, we have a message and can print it
 		if err == nil {
-
 			message := string(bytes.Trim(buf, "\x00")) //trims buf of empty bytes
-
-			//message = strings.TrimSpace(message) // maybe delete?
-			//source := configurations.QuerryConfig(remoteConnIp(conn), 1)[0]
-
 			unicastReceive(acceptedId, message)
 		}
 	}

@@ -2,7 +2,9 @@ package node
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"math/rand"
 	"mp1/configurations"
 	"net"
 	"os"
@@ -13,10 +15,18 @@ import (
 )
 
 var bufSize int = 2048
+var minDelay int
+var maxDelay int
+var exitCode string = "$exit"
+var CONFIG string = "config.txt"
 
-// MUST ADD DELAY !!!!
+// Starts a node
 // address = ip + port
 func StartNode(id string) {
+
+	// Delay boundaries
+	minDelay, maxDelay = configurations.GetDelayBounds()
+
 	// Initalize Listener
 	lineArr := configurations.QuerryConfig(id, 0)
 	address := lineArr[1] + ":" + lineArr[2]
@@ -26,35 +36,39 @@ func StartNode(id string) {
 
 	// connctions maps ip?? to connection
 	in_conns := make(map[string]net.Conn)
+	fmt.Println("len of map = " + strconv.Itoa(len(in_conns)))
 
 	// Listen for connection
 	// Accept connections, get their address with conn.RemoteAddr() and add to dictionary of connections
 
 	var wgAccept sync.WaitGroup
-	wgAccept.Add(2)
+
+	// total lines - 1 (delays) - 1 (self) = total number of connections
+	wgAccept.Add(countLines(CONFIG) - 2)
+
 	go acceptClients(in_conns, ln, &wgAccept)
 
-	fmt.Println("After accept clinets")
 	// Try to Dial into other listeners
 	outConnsMap := OutConnsMap(id)
 
 	wgAccept.Wait()
 	// Wait for input and send messages
 	fmt.Println("All nodes connected. Send a message with: send [DESTINATION ID] [MESSAGE]")
+
 	for {
-		destination, message := handleInput()
+		destination, message := handleInput(outConnsMap)
 		if destination != "" {
-			unicastSend(outConnsMap, destination, message)
+			go unicastSend(outConnsMap, destination, message)
 		}
 	}
 }
 
-// HANDLING Connecting to Other Nodes ///
+// Handling Outgoing connection to Other Nodes ///
+
 // Creates map of outgoing connections = {id1: conn1, ...} without exclude_id (self)
 // Each conn is null to start
 func OutConnsMap(exclude_id string) map[string]net.Conn {
 	// Do not return until all conncetions have been formed
-
 	var wg sync.WaitGroup
 
 	file, err := os.Open("config.txt")
@@ -66,7 +80,6 @@ func OutConnsMap(exclude_id string) map[string]net.Conn {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-
 	connsMap := make(map[string]net.Conn)
 
 	for scanner.Scan() {
@@ -79,7 +92,6 @@ func OutConnsMap(exclude_id string) map[string]net.Conn {
 			fmt.Println("Here is lineArr: " + scanner.Text())
 			if lineArr[0] != exclude_id {
 				wg.Add(1)
-				// ip + port
 
 				// dial and add conn to map
 				go connectTo(lineArr, connsMap, &wg)
@@ -104,8 +116,6 @@ func connectTo(lineArr []string, conns_map map[string]net.Conn, wg *sync.WaitGro
 		time.Sleep(1 * time.Second)
 	}
 
-	fmt.Println("Broke out of loop, dial successful")
-	// Delete
 	if err != nil {
 		panic(err)
 	}
@@ -118,13 +128,23 @@ func connectTo(lineArr []string, conns_map map[string]net.Conn, wg *sync.WaitGro
 }
 
 // First two words are commands, all other words are part of message
-func handleInput() (destination string, message string) {
-	// handle input
+// Handles exit codes
+func handleInput(connsMap map[string]net.Conn) (destination string, message string) {
 	reader := bufio.NewReader(os.Stdin)
-
 	text, _ := reader.ReadString('\n')
 
-	if text == "exit" {
+	//strip new line
+	text = strings.Replace(text, "\n", "", -1)
+
+	// exit all nodes
+	if text == "$exit" {
+		for _, conn := range connsMap {
+			_, err := conn.Write([]byte("$exit"))
+			if err != nil {
+				panic(err)
+			}
+		}
+
 		fmt.Println("Exiting")
 		os.Exit(0)
 	}
@@ -139,16 +159,10 @@ func handleInput() (destination string, message string) {
 	destination = textArr[1]
 	message = strings.Join(textArr[2:], " ")
 
-	//strip new line
-	message = strings.Replace(message, "\n", "", -1)
-
 	return
 }
 
-// FINISH
 func unicastSend(connsMap map[string]net.Conn, destinationId string, message string) {
-
-	// Dealing with Message construction
 	conn := connsMap[destinationId]
 
 	if conn == nil {
@@ -156,8 +170,12 @@ func unicastSend(connsMap map[string]net.Conn, destinationId string, message str
 		return
 	}
 
-	// Send Message
-	fmt.Println("Sending a message...")
+	// Send notification
+	now := time.Now().Format("2006-01-02 15:04:05")
+	fmt.Println("Sent '" + message + "' to node " + destinationId + ", system time is " + now)
+
+	// Artificial Delay before actually writing to channel
+	time.Sleep(time.Duration(getDelay()) * time.Millisecond)
 
 	// Write Message over tcp channel
 	_, err := conn.Write([]byte(message))
@@ -165,15 +183,11 @@ func unicastSend(connsMap map[string]net.Conn, destinationId string, message str
 	if err != nil {
 		panic("Error writing message")
 	}
-
-	//Sent “Hello” to process 2, system time is ­­­­­­­­­­­­­XXX
-	time := time.Now().Format("02 Jan 06 15:04 EST")
-	fmt.Println("Sent '" + message + "' to node " + destinationId + ", system time is " + time)
-
 }
 
 // HADNLING  Accepting connections and RECEIVING ///
 
+// Starts server for other nodes to connect to
 func startServer(address string) (ln net.Listener) {
 	ln, err := net.Listen("tcp", address)
 
@@ -188,13 +202,8 @@ func startServer(address string) (ln net.Listener) {
 
 // Waits for client to connect and recieves message
 func acceptClients(connections map[string]net.Conn, ln net.Listener, wgAccept *sync.WaitGroup) {
-
-	fmt.Println("Inside acceptClients")
 	// loop to allow function to accept all clients
 	for {
-		fmt.Println("Inside loop")
-		// Waits for client to connect
-
 		connChan := make(chan net.Conn)
 		errChan := make(chan error)
 
@@ -212,18 +221,16 @@ func acceptClients(connections map[string]net.Conn, ln net.Listener, wgAccept *s
 		conn := <-connChan
 		err := <-errChan
 
-		fmt.Println("Line 165")
-
 		if err != nil {
-			fmt.Println("About to panic")
-
 			panic("error accepting")
 		}
 
 		acceptedIp := remoteConnIp(conn)
+		fmt.Println("acceptedIp: " + acceptedIp)
+		fmt.Println("Remote addr: " + conn.RemoteAddr().String())
+		fmt.Println("Local addr: " + conn.LocalAddr().String())
+
 		acceptedId := configurations.QuerryConfig(acceptedIp, 1)[0]
-		fmt.Println("acceptedIP : " + acceptedIp)
-		// Find id from AcceptedIp - NOT DONE
 
 		// Add connection to map
 		connections[acceptedId] = conn
@@ -231,16 +238,11 @@ func acceptClients(connections map[string]net.Conn, ln net.Listener, wgAccept *s
 
 		go handleConnection(conn)
 		wgAccept.Done()
-
 	}
-
 }
 
-// fix bug
 // Handles incoming messages for the node
 func handleConnection(conn net.Conn) {
-
-	//fmt.Println("Inside handleConnection ")
 	// loop to allow for many connection handling
 	for {
 		buf := make([]byte, bufSize)
@@ -248,22 +250,28 @@ func handleConnection(conn net.Conn) {
 
 		// if err is empty, we have a message and can print it
 		if err == nil {
-			message := string(buf)
 
-			fmt.Println("Just read a message from " + remoteConnIp(conn))
+			message := string(bytes.Trim(buf, "\x00")) //trims buf of empty bytes
+
+			message = strings.TrimSpace(message) // maybe delete?
 			source := configurations.QuerryConfig(remoteConnIp(conn), 1)[0]
 
 			unicastReceive(source, message)
-
 		}
 	}
-	return
 }
 
 func unicastReceive(source string, message string) {
-	time := time.Now().Format("02 Jan 06 15:04 EST")
+	if message == exitCode {
+		fmt.Println("Exiting")
+		os.Exit(0)
+	}
+
+	time := time.Now().Format("2006-01-02 15:04:05")
 	fmt.Println("Received '" + message + "' from node " + source + ", system time is: " + time)
 }
+
+// Util///
 
 // Returns Conn's ip address
 func remoteConnIp(conn net.Conn) string {
@@ -272,4 +280,26 @@ func remoteConnIp(conn net.Conn) string {
 	} else {
 		return ""
 	}
+}
+
+func getDelay() int {
+	diff := maxDelay - minDelay
+	return minDelay + rand.Intn(diff)
+}
+
+func countLines(filePath string) int {
+	file, err := os.Open(filePath)
+	if err != nil {
+		panic(err)
+	}
+
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	lineCount := 0
+	for scanner.Scan() {
+		lineCount++
+	}
+
+	return lineCount
 }

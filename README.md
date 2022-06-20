@@ -8,7 +8,7 @@ A simple network demonstration
 
   For each node listed in the config file, open an terminal instance and run: ``` go run main.go NODE_ID ``` where NODE_ID is the id that node as specified by config.txt
 
-  Once all of the nodes are connected (a confirmation message will appear), send messages by entering: ```send DESTINATION_ID MESSAGE``` 
+  Once all of the nodes are connected, send messages by entering: ```send DESTINATION_ID MESSAGE``` 
 
 
 

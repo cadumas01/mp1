@@ -3,6 +3,7 @@ package configurations
 import (
 	"bufio"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -32,4 +33,35 @@ func QuerryConfig(key string, keyType int) []string {
 	}
 
 	return empty
+}
+
+func GetDelayBounds() (min int, max int) {
+	file, err := os.Open(CONFIG)
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	scanner.Scan()
+	lineArr := strings.Split(scanner.Text(), " ")
+
+	if len(lineArr) != 2 {
+		panic("Invalid delay boundaries")
+	}
+
+	min, err = strconv.Atoi(lineArr[0])
+	if err != nil {
+		panic(err)
+	}
+
+	max, err = strconv.Atoi(lineArr[1])
+	if err != nil {
+		panic(err)
+	}
+
+	return
 }
